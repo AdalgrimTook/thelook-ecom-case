@@ -142,7 +142,7 @@ Since the dataset doesn't reflect the actual change, we use proxy analysis:
 
 ### Links
 
-- **Slides**: [Link]
+- **Slides**: https://github.com/AdalgrimTook/thelook-ecom-case/blob/main/analysis/Thelook%20e-commerce-slides.pdf
 - **Notebook**: See `analysis/visualizations.ipynb`
 
 ### Visuals Included
@@ -240,3 +240,4 @@ order_id, user_id, created_at, status, returned_at, sale_price.
 **Submitted**: 10/12/2025
 **Author**: Pablo Fernandez
 **Contact**: pablo.fdzt@gmail.com
+
