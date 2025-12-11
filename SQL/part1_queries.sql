@@ -7,6 +7,10 @@
 -- Month: DATE_TRUNC(DATE(created_at), MONTH)
 -- ==========================================
 
+-- Parameters
+DECLARE start_date DATE DEFAULT DATE('2019-01-01');
+DECLARE end_date DATE DEFAULT DATE('2022-12-31');
+
 WITH completed_items AS (
   SELECT
     DATE_TRUNC(DATE(oi.created_at), MONTH) AS month,
@@ -16,10 +20,10 @@ WITH completed_items AS (
   FROM `bigquery-public-data.thelook_ecommerce.order_items` AS oi
   WHERE oi.status = 'Complete'
     AND oi.returned_at IS NULL
-    AND DATE(oi.created_at) BETWEEN DATE('2019-01-01') AND DATE('2022-12-31')
+    AND DATE(oi.created_at) BETWEEN start_date AND end_date
 ),
 
-order_level AS (
+order_lvl AS (
   SELECT
     month,
     order_id,
@@ -55,13 +59,17 @@ ORDER BY month;
 -- Task B — New vs Returning Mix
 --
 -- Per month:
---   active_customers      (≥1 completed order in that month)
---   new_customers         (first-ever completed order in that month)
+--   active_customers (≥1 completed order in that month)
+--   new_customers (first-ever completed order in that month)
 --   returning_customers
 --   revenue_new
 --   revenue_returning
 --   %_revenue_from_returnin
 -- ==========================================
+
+-- Parameters
+DECLARE start_date DATE DEFAULT DATE('2019-01-01');
+DECLARE end_date DATE DEFAULT DATE('2022-12-31');
 
 WITH completed_items AS (
   SELECT
@@ -73,7 +81,7 @@ WITH completed_items AS (
   FROM `bigquery-public-data.thelook_ecommerce.order_items` AS oi
   WHERE oi.status = 'Complete'
     AND oi.returned_at IS NULL
-    AND DATE(oi.created_at) BETWEEN DATE('2019-01-01') AND DATE('2022-12-31')
+    AND DATE(oi.created_at) BETWEEN start_date AND end_date
 ),
 order_lvl AS (
   SELECT order_id, user_id, order_month, SUM(sale_price) AS order_rev
@@ -136,7 +144,11 @@ ORDER BY month;
 -- For each month: active_customers, churned_customers_90d, churn_rate_90d
 -- ==========================================
 
--- extended date range by 90 days to check for future orders
+-- Parameters
+DECLARE start_date DATE DEFAULT DATE('2019-01-01');
+DECLARE end_date DATE DEFAULT DATE('2022-12-31');
+DECLARE churn_window_days INT64 DEFAULT 90;
+
 WITH orders_base AS (
   SELECT
     oi.order_id,
@@ -146,7 +158,7 @@ WITH orders_base AS (
   FROM `bigquery-public-data.thelook_ecommerce.order_items` oi
   WHERE oi.status = 'Complete'
     AND oi.returned_at IS NULL
-    AND DATE(oi.created_at) BETWEEN DATE('2019-01-01') AND DATE_ADD(DATE('2022-12-31'), INTERVAL 90 DAY)
+    AND DATE(oi.created_at) BETWEEN start_date AND DATE_ADD(end_date, INTERVAL churn_window_days DAY)
 ),
 
 user_month_activity AS (
@@ -155,7 +167,7 @@ user_month_activity AS (
     order_month AS month,
     MAX(order_date) AS last_order_in_month
   FROM orders_base
-  WHERE order_date BETWEEN DATE('2019-01-01') AND DATE('2022-12-31')
+  WHERE order_date BETWEEN start_date AND end_date
   GROUP BY 1,2
 ),
 
@@ -169,7 +181,7 @@ with_future_flag AS (
       SELECT 1 FROM orders_base co
       WHERE co.user_id = uma.user_id
         AND co.order_date > uma.last_order_in_month
-        AND co.order_date <= DATE_ADD(uma.last_order_in_month, INTERVAL 90 DAY)
+        AND co.order_date <= DATE_ADD(uma.last_order_in_month, INTERVAL churn_window_days DAY)
     ) AS has_future_order
   FROM user_month_activity uma
 ),
@@ -205,6 +217,12 @@ ORDER BY month;
 --   "Free shipping for orders over $100"
 -- ==========================================
 
+-- Parameters
+DECLARE pre_start DATE DEFAULT DATE('2021-10-15');
+DECLARE post_end DATE DEFAULT DATE('2022-04-15');
+DECLARE launch_date DATE DEFAULT DATE('2022-01-15');
+DECLARE high_value_threshold FLOAT64 DEFAULT 100.0;
+
 WITH completed_items AS (
   SELECT
     oi.order_id,
@@ -213,7 +231,7 @@ WITH completed_items AS (
   FROM `bigquery-public-data.thelook_ecommerce.order_items` AS oi
   WHERE oi.status = 'Complete' 
   AND oi.returned_at IS NULL
-    AND DATE(oi.created_at) BETWEEN DATE('2021-10-15') AND DATE('2022-04-15')
+    AND DATE(oi.created_at) BETWEEN pre_start AND post_end
 ),
 
 order_lvl AS (
@@ -226,8 +244,8 @@ flagged AS (
   SELECT 
     order_id, 
     order_val,
-    CASE WHEN order_val >= 100 THEN TRUE ELSE FALSE END AS high_value_flag,
-    CASE WHEN order_date < DATE('2022-01-15') THEN 'Pre' ELSE 'Post' END AS period
+    CASE WHEN order_val >= high_value_threshold THEN TRUE ELSE FALSE END AS high_value_flag,
+    CASE WHEN order_date < launch_date THEN 'Pre' ELSE 'Post' END AS period
   FROM order_lvl
 )
 
